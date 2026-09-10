@@ -17,7 +17,6 @@ model GuestSession {
   carts         Cart[]
   checkouts     CheckoutSession[]
   orders        Order[]
-  searches      SearchQuery[]
 }
 
 model Category {
@@ -109,20 +108,6 @@ model ProductSpecification {
   value     String
   sortOrder Int     @default(0)
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-}
-
-model SearchQuery {
-  id            String        @id @default(cuid())
-  guestSessionId String?
-  queryText     String
-  categoryId    String?
-  sort          String?
-  page          Int           @default(1)
-  pageSize      Int           @default(48)
-  totalResults  Int?
-  filters       Json?
-  guestSession  GuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
-  createdAt     DateTime      @default(now())
 }
 
 model Review {
