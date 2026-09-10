@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model GuestSession {
+  id            String         @id @default(cuid())
+  cookieToken   String         @unique
+  createdAt     DateTime       @default(now())
+  expiresAt     DateTime?
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+  carts         Cart[]
+  checkouts     CheckoutSession[]
+  orders        Order[]
+  searches      SearchQuery[]
+}
+
+model Category {
+  id       String     @id @default(cuid())
+  parentId String?
+  name     String
+  slug     String     @unique
+  displayOrder Int    @default(0)
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+  facets   Facet[]
+}
+
+model Facet {
+  id          String   @id @default(cuid())
+  categoryId  String
+  name        String
+  type        String
+  options     Json
+  displayOrder Int     @default(0)
+  category    Category @relation(fields: [categoryId], references: [id])
+}
+
+model Product {
+  id             String                @id @default(cuid())
+  asin           String                @unique
+  title          String
+  brand          String?
+  description    String?
+  department     String?
+  manufacturer   String?
+  modelNumber    String?
+  origin         String?
+  categoryId     String?
+  badges         Json?
+  category       Category?             @relation(fields: [categoryId], references: [id])
+  variants       ProductVariant[]
+  media          ProductMedia[]
+  specifications ProductSpecification[]
+  reviews        Review[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model ProductVariant {
+  id                   String       @id @default(cuid())
+  productId            String
+  sku                  String       @unique
+  color                String?
+  size                 String?
+  style                String?
+  packDescription      String?
+  price                Decimal      @db.Decimal(12, 2)
+  listPrice            Decimal?     @db.Decimal(12, 2)
+  currency             String       @default("INR")
+  quantityAvailable    Int          @default(0)
+  availabilityStatus   String       @default("in_stock")
+  shippingCharge       Decimal      @default(0) @db.Decimal(12, 2)
+  importCharge         Decimal      @default(0) @db.Decimal(12, 2)
+  estimatedDeliveryDate DateTime?
+  isPrimeEligible      Boolean      @default(false)
+  product              Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  media                ProductMedia[]
+  cartItems            CartItem[]
+  wishlistItems        WishlistItem[]
+  orderItems           OrderItem[]
+}
+
+model ProductMedia {
+  id           String          @id @default(cuid())
+  productId    String
+  variantId    String?
+  type         String
+  url          String
+  thumbnailUrl String?
+  altText      String?
+  sortOrder    Int             @default(0)
+  durationSeconds Int?
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+}
+
+model ProductSpecification {
+  id        String  @id @default(cuid())
+  productId String
+  group     String
+  label     String
+  value     String
+  sortOrder Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model SearchQuery {
+  id            String        @id @default(cuid())
+  guestSessionId String?
+  queryText     String
+  categoryId    String?
+  sort          String?
+  page          Int           @default(1)
+  pageSize      Int           @default(48)
+  totalResults  Int?
+  filters       Json?
+  guestSession  GuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+}
+
+model Review {
+  id            String       @id @default(cuid())
+  productId     String
+  guestSessionId String
+  displayName   String
+  rating        Int
+  comment       String
+  createdAt     DateTime     @default(now())
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  guestSession  GuestSession @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  @@index([productId])
+}
+
+model WishlistItem {
+  id              String         @id @default(cuid())
+  guestSessionId  String
+  productVariantId String
+  createdAt       DateTime       @default(now())
+  guestSession    GuestSession   @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  productVariant  ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  @@unique([guestSessionId, productVariantId])
+}
+
+model Cart {
+  id            String         @id @default(cuid())
+  guestSessionId String
+  currency      String         @default("INR")
+  isGiftOrder   Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  guestSession  GuestSession   @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  items         CartItem[]
+  checkouts     CheckoutSession[]
+  @@index([guestSessionId])
+}
+
+model CartItem {
+  id              String         @id @default(cuid())
+  cartId          String
+  productVariantId String
+  quantity        Int            @default(1)
+  unitPrice       Decimal        @db.Decimal(12, 2)
+  listPrice       Decimal?       @db.Decimal(12, 2)
+  discountAmount  Decimal        @default(0) @db.Decimal(12, 2)
+  isGift          Boolean        @default(false)
+  isSavedForLater Boolean        @default(false)
+  giftMessage     String?
+  cart            Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productVariant  ProductVariant @relation(fields: [productVariantId], references: [id])
+  @@unique([cartId, productVariantId])
+}
+
+model CheckoutSession {
+  id                String          @id @default(cuid())
+  guestSessionId    String
+  cartId            String
+  step              String          @default("items")
+  shippingAddressId String?
+  billingAddressId  String?
+  shippingOptionId  String?
+  paymentStatus     String          @default("pending")
+  validationErrors  Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  guestSession      GuestSession    @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  cart              Cart            @relation(fields: [cartId], references: [id])
+  shippingAddress   Address?        @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  billingAddress    Address?        @relation("BillingAddress", fields: [billingAddressId], references: [id])
+  shippingOption    ShippingOption? @relation(fields: [shippingOptionId], references: [id])
+  mockPayment       MockPayment?
+  priceBreakdown    PriceBreakdown?
+  orders            Order[]
+}
+
+model Address {
+  id                String            @id @default(cuid())
+  checkoutSessionId String
+  type              String
+  fullName          String
+  phone             String
+  country           String
+  streetAddress     String
+  unitOrSuite       String?
+  city              String
+  stateOrRegion     String
+  postalCode        String
+  deliveryInstructions String?
+  shippingCheckouts CheckoutSession[] @relation("ShippingAddress")
+  billingCheckouts  CheckoutSession[] @relation("BillingAddress")
+}
+
+model ShippingOption {
+  id               String            @id @default(cuid())
+  name             String
+  carrier          String?
+  deliveryDate     DateTime
+  shippingCharge   Decimal           @db.Decimal(12, 2)
+  currency         String            @default("INR")
+  isEligible       Boolean           @default(true)
+  description      String?
+  checkouts        CheckoutSession[]
+}
+
+model MockPayment {
+  id              String          @id @default(cuid())
+  checkoutSessionId String        @unique
+  methodType      String
+  displayLabel    String
+  lastFour        String?
+  status          String          @default("pending")
+  mockTransactionId String?       @unique
+  checkoutSession CheckoutSession @relation(fields: [checkoutSessionId], references: [id], onDelete: Cascade)
+}
+
+model PriceBreakdown {
+  id                 String          @id @default(cuid())
+  checkoutSessionId  String?         @unique
+  orderId            String?         @unique
+  itemsTotal         Decimal         @db.Decimal(12, 2)
+  discountTotal      Decimal         @default(0) @db.Decimal(12, 2)
+  shippingTotal      Decimal         @default(0) @db.Decimal(12, 2)
+  taxTotal           Decimal         @default(0) @db.Decimal(12, 2)
+  importCharges      Decimal         @default(0) @db.Decimal(12, 2)
+  currencyConversionFee Decimal      @default(0) @db.Decimal(12, 2)
+  exchangeRate       Decimal?        @db.Decimal(14, 6)
+  grandTotal         Decimal         @db.Decimal(12, 2)
+  currency           String          @default("INR")
+  checkoutSession    CheckoutSession? @relation(fields: [checkoutSessionId], references: [id])
+  order              Order?          @relation(fields: [orderId], references: [id])
+}
+
+model Order {
+  id                    String           @id @default(cuid())
+  orderNumber           String           @unique
+  guestSessionId        String
+  checkoutSessionId     String
+  status                String           @default("placed")
+  shippingAddressSnapshot Json
+  billingAddressSnapshot  Json
+  paymentSnapshot       Json
+  placedAt              DateTime         @default(now())
+  estimatedDeliveryDate DateTime?
+  confirmationEmail     String?
+  guestSession          GuestSession     @relation(fields: [guestSessionId], references: [id])
+  checkoutSession       CheckoutSession  @relation(fields: [checkoutSessionId], references: [id])
+  items                 OrderItem[]
+  priceBreakdown        PriceBreakdown?
+}
+
+model OrderItem {
+  id                    String         @id @default(cuid())
+  orderId               String
+  productVariantId      String
+  productTitleSnapshot  String
+  imageUrlSnapshot      String?
+  quantity              Int
+  unitPrice             Decimal        @db.Decimal(12, 2)
+  shippingOptionSnapshot Json?
+  packagingPreference   String?
+  giftOptions           Json?
+  order                 Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariant        ProductVariant @relation(fields: [productVariantId], references: [id])
+}

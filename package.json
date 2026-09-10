@@ -1,0 +1,27 @@
+{
+  "name": "amazon-clone",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:client": "npm --workspace client run dev",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "npm --workspace server run build",
+    "build:client": "npm --workspace client run build",
+    "start": "npm --workspace server run start",
+    "typecheck": "npm run typecheck:server && npm run typecheck:client",
+    "typecheck:server": "npm --workspace server run typecheck",
+    "typecheck:client": "npm --workspace client run typecheck",
+    "db:generate": "npm --workspace server run db:generate",
+    "db:migrate": "npm --workspace server run db:migrate",
+    "db:deploy": "npm --workspace server run db:deploy",
+    "db:studio": "npm --workspace server run db:studio"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
